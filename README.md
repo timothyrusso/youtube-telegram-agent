@@ -66,6 +66,8 @@ curl https://YOUR_PROJECT.vercel.app/eve/v1/health
 curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
 ```
 
+The GitHub repository is connected to Vercel. Pushes to `main` deploy to production automatically, while pull requests receive preview deployments.
+
 ## Notes
 
 - The video must be public and have manual or automatically generated captions.
