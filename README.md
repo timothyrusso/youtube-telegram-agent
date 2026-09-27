@@ -68,6 +68,10 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
 
 The GitHub repository is connected to Vercel. Pushes to `main` deploy to production automatically, while pull requests receive preview deployments.
 
+## Key takeaways voice note
+
+After each summary, the channel's `message.completed` handler reads the "Key takeaways" section aloud with OpenAI text-to-speech (`gpt-4o-mini-tts`, voice `marin`, Ogg Opus) and sends it with `sendVoice`, captioned "🎧 Key takeaways". It needs `OPENAI_API_KEY`; without it, or if speech fails, only the text summary is sent. Capped at about 900 characters (roughly a minute). `OPENAI_TTS_VOICE` overrides the voice; `TELEGRAM_API_BASE_URL` points the channel at a mock Bot API for local tests.
+
 ## Notes
 
 - The video must be public and have manual or automatically generated captions.
