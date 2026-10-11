@@ -72,6 +72,31 @@ The GitHub repository is connected to Vercel. Pushes to `main` deploy to product
 
 After each summary, the channel's `message.completed` handler reads the "Key takeaways" section aloud with OpenAI text-to-speech (`gpt-4o-mini-tts`, voice `marin`, Ogg Opus) and sends it with `sendVoice`, captioned "🎧 Key takeaways". It needs `OPENAI_API_KEY`; without it, or if speech fails, only the text summary is sent. Capped at about 900 characters (roughly a minute). `OPENAI_TTS_VOICE` overrides the voice; `TELEGRAM_API_BASE_URL` points the channel at a mock Bot API for local tests.
 
+## Audio summaries in a private channel
+
+Ask for audio explicitly ("summarize https://youtu.be/... as audio") and the agent writes a script meant to be heard, then calls the `create_audio_summary` tool. The tool speaks it with OpenAI text-to-speech in chunks of up to 3,500 characters (three at a time), joins them into one MP3 with a correct duration, and posts it with `sendAudio` to your private audio channel, where it plays in Telegram's music player. A bare link stays a text summary. Delete an episode from the channel when you've finished it.
+
+Setup:
+
+1. In Telegram, create a private channel (for example "Eve Audio").
+2. Add the bot to the channel as an administrator with permission to post messages.
+3. Find the channel id (it starts with `-100`): forward any channel post to a bot like @userinfobot. (`getUpdates` does not work while the webhook is set.)
+4. Set `EVE_AUDIO_CHANNEL_ID` and `OPENAI_API_KEY` in Vercel, then redeploy.
+
+Scripts are capped at 30,000 characters (about 35 minutes; the MP3 is 128 kbps, so roughly 34 MB, under the 50 MB bot upload limit). Each delivery logs its character count, chunk count, duration and size, never the script, so you can track the text-to-speech cost. `OPENAI_TTS_MODEL` overrides the speech model.
+
+## Restrict who can use the bot
+
+Every request can spend OpenAI credit. Set `TELEGRAM_ALLOWED_USER_IDS` to a comma-separated list of Telegram user ids (get yours from @userinfobot); updates from anyone else are acknowledged and dropped. Unset, the bot answers everyone.
+
+## Tests
+
+```bash
+npm test
+```
+
+Unit tests use Node's built-in test runner and cover script chunking, MP3 joining, file names and the sender allowlist.
+
 ## Notes
 
 - The video must be public and have manual or automatically generated captions.
