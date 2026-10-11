@@ -10,13 +10,16 @@
     "build": "eve build",
     "dev": "eve dev",
     "info": "eve info",
-    "start": "eve start"
+    "start": "eve start",
+    "test": "node --import ./test/setup.mjs --test test/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.81",
     "@ai-sdk/openai-compatible": "^3.0.53",
+    "@mozilla/readability": "^0.6.0",
     "ai": "^7.0.107",
     "eve": "^0.63.0",
+    "linkedom": "^0.18.13",
     "youtube-transcript-plus": "^2.0.1",
     "zod": "^4.1.11"
   }
