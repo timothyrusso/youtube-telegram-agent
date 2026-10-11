@@ -1,21 +1,32 @@
 import { timingSafeEqual } from 'node:crypto';
 import { telegramChannel } from 'eve/channels/telegram';
+import { allowedSender } from '../lib/allowlist.js';
 import { plainText } from '../lib/plain-text.js';
 import { sendTakeawaysVoice } from '../lib/takeaways-voice.js';
 
 // Points the channel and sendVoice at a mock Bot API for local tests.
 const apiBaseUrl = process.env.TELEGRAM_API_BASE_URL;
 
+// The turn in which create_audio_summary posted audio; that turn gets no extra voice note.
+type AudioTurnState = { audioTurnId?: string | null };
+
 const channel = telegramChannel({
   botUsername: process.env.TELEGRAM_BOT_USERNAME,
   ...(apiBaseUrl ? { api: { apiBaseUrl } } : {}),
   events: {
+    async 'action.result'(data, channel) {
+      const { result } = data;
+      if (result.kind === 'tool-result' && result.toolName === 'create_audio_summary' && !result.isError) {
+        (channel.state as AudioTurnState).audioTurnId = data.turnId;
+      }
+    },
     // Eve's default reply without Markdown symbols, then the summary's key takeaways as a voice
     // note. A failed voice note is logged and skipped: the text summary has already arrived.
     async 'message.completed'(data, channel) {
       if (data.finishReason === 'tool-calls' || !data.message) return;
       const summary = plainText(data.message);
       await channel.telegram.post(summary);
+      if ((channel.state as AudioTurnState).audioTurnId === data.turnId) return;
       try {
         await channel.telegram.startTyping('record_voice');
         await sendTakeawaysVoice(summary, channel.telegram, apiBaseUrl);
@@ -46,6 +57,8 @@ channel.routes = [{
   async handler(request, args) {
     if (fromTelegram(request)) {
       const update = await request.clone().json().catch(() => null);
+      // Acknowledge strangers with 200 so Telegram doesn't retry, and drop the update.
+      if (!allowedSender(update)) return new Response(null, { status: 200 });
       const message = update?.message;
       if (message?.chat?.type === 'private' && startCommand.test(String(message.text ?? '').trim())) {
         // Private-chat continuation address: `<chatId>:<topic>:<conversation>`, both empty.

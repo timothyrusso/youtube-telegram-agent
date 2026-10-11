@@ -1,7 +1,6 @@
 // Reads a summary's "Key takeaways" aloud as a Telegram voice note (OpenAI text-to-speech).
+import { speak } from './speech.js';
 
-// OpenAI recommends marin or cedar for quality; override with OPENAI_TTS_VOICE.
-const defaultVoice = 'marin';
 // Keeps a clip around 30–60 s, and the cost to cents.
 const maxCharacters = 900;
 
@@ -24,26 +23,8 @@ export function takeawaysFrom(summary: string): string | null {
   return text;
 }
 
-async function speak(text: string): Promise<Uint8Array> {
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini-tts',
-      voice: process.env.OPENAI_TTS_VOICE ?? defaultVoice,
-      input: text,
-      instructions: 'Speak clearly and warmly, like a friendly podcast host summing up an episode.',
-      // Opus in an Ogg container is what Telegram voice notes use.
-      response_format: 'opus',
-    }),
-    signal: AbortSignal.timeout(45_000),
-  });
-  if (!response.ok) throw new Error(`OpenAI speech failed with status ${response.status}: ${await response.text()}`);
-  return new Uint8Array(await response.arrayBuffer());
-}
-
 // ctx.telegram.request only sends JSON, so the audio goes up as multipart form data.
-async function sendVoice(chatId: string, audio: Uint8Array, apiBaseUrl: string, messageThreadId?: number) {
+async function sendVoice(chatId: string, audio: Uint8Array<ArrayBuffer>, apiBaseUrl: string, messageThreadId?: number) {
   const form = new FormData();
   form.set('chat_id', chatId);
   if (messageThreadId !== undefined) form.set('message_thread_id', String(messageThreadId));
@@ -66,6 +47,11 @@ export async function sendTakeawaysVoice(
   if (!process.env.OPENAI_API_KEY) return false;
   const text = takeawaysFrom(summary);
   if (!text) return false;
-  await sendVoice(chat.chatId, await speak(text), apiBaseUrl, chat.messageThreadId);
+  // Opus in an Ogg container is what Telegram voice notes use.
+  const audio = await speak(text, {
+    format: 'opus',
+    instructions: 'Speak clearly and warmly, like a friendly podcast host summing up an episode.',
+  });
+  await sendVoice(chat.chatId, audio, apiBaseUrl, chat.messageThreadId);
   return true;
 }
