@@ -74,7 +74,7 @@ After each summary, the channel's `message.completed` handler reads the "Key tak
 
 ## Audio summaries in a private channel
 
-Ask for audio explicitly ("summarize https://youtu.be/... as audio") and the agent writes a script meant to be heard, then calls the `create_audio_summary` tool. The tool speaks it with OpenAI text-to-speech in chunks of up to 3,500 characters (three at a time), joins them into one MP3 with a correct duration, and posts it with `sendAudio` to your private audio channel, where it plays in Telegram's music player. A bare link stays a text summary. Delete an episode from the channel when you've finished it.
+Paste a YouTube or article link and the agent writes an Italian script meant to be heard (translating if the source is in another language), then calls the `create_audio_summary` tool. The tool speaks it with OpenAI text-to-speech in chunks of up to 3,500 characters (three at a time), joins them into one MP3 with a correct duration, and posts it with `sendAudio` to your private audio channel, where it plays in Telegram's music player. Ask for text explicitly ("as text", "in testo") to get the written summary in the chat instead. Delete an episode from the channel when you've finished it.
 
 Setup:
 
