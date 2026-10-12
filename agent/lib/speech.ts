@@ -12,21 +12,28 @@ export interface SpeakOptions {
   signal?: AbortSignal;
 }
 
-/** One speech request. Retries once on a rate limit or server error. */
+/** One speech request. Retries once on a rate limit, server error, timeout or network failure. */
 export async function speak(text: string, { format, instructions, signal }: SpeakOptions): Promise<Uint8Array<ArrayBuffer>> {
   for (let attempt = 1; ; attempt++) {
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({
-        model: process.env.OPENAI_TTS_MODEL ?? 'gpt-4o-mini-tts',
-        voice: process.env.OPENAI_TTS_VOICE ?? defaultVoice,
-        input: text,
-        instructions,
-        response_format: format,
-      }),
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: JSON.stringify({
+          model: process.env.OPENAI_TTS_MODEL ?? 'gpt-4o-mini-tts',
+          voice: process.env.OPENAI_TTS_VOICE ?? defaultVoice,
+          input: text,
+          instructions,
+          response_format: format,
+        }),
+        // A full chunk takes about 20 s; the margin covers slow moments without hanging forever.
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
+      });
+    } catch (error) {
+      if (signal?.aborted || attempt === 2) throw new Error(`Text-to-speech request failed: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
     if (response.ok) return new Uint8Array(await response.arrayBuffer());
     const retryable = response.status === 429 || response.status >= 500;
     if (!retryable || attempt === 2) {
@@ -97,7 +104,10 @@ export async function mapWithConcurrency<T, R>(items: readonly T[], limit: numbe
 
 /** Speaks a long script as MP3 chunks, in order. Any failed chunk fails the whole script. */
 export function speakScript(script: string, instructions: string, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>[]> {
-  return mapWithConcurrency(splitScript(script), concurrency, (chunk) =>
-    speak(chunk, { format: 'mp3', instructions, signal }),
+  const chunks = splitScript(script);
+  return mapWithConcurrency(chunks, concurrency, (chunk, index) =>
+    speak(chunk, { format: 'mp3', instructions, signal }).catch((error: unknown) => {
+      throw new Error(`Speech for part ${index + 1} of ${chunks.length}: ${error instanceof Error ? error.message : String(error)}`);
+    }),
   );
 }

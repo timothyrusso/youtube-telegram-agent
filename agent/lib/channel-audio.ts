@@ -61,11 +61,17 @@ export async function sendAudioToChannel(audio: ChannelAudio): Promise<ChannelPo
     form.set('caption', caption);
     form.set('audio', new Blob([audio.bytes], { type: 'audio/mpeg' }), audioFileName(audio.title));
 
-    const response = await fetch(`${apiBaseUrl}/bot${process.env.TELEGRAM_BOT_TOKEN}/sendAudio`, {
-      method: 'POST',
-      body: form,
-      signal: AbortSignal.timeout(120_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${apiBaseUrl}/bot${process.env.TELEGRAM_BOT_TOKEN}/sendAudio`, {
+        method: 'POST',
+        body: form,
+        // Large episodes (20+ MB) can take a while to upload.
+        signal: AbortSignal.timeout(300_000),
+      });
+    } catch (error) {
+      throw new Error(`Uploading the audio to Telegram failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     const body = (await response.json().catch(() => null)) as {
       ok?: boolean;
       result?: { message_id?: number };
