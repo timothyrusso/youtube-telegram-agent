@@ -32,7 +32,7 @@ function tidy(text: string): string {
     .trim();
 }
 
-function capped(text: string): { text: string; truncated: boolean } {
+export function capped(text: string): { text: string; truncated: boolean } {
   if (text.length <= maxArticleCharacters) return { text, truncated: false };
   const cut = text.lastIndexOf('\n\n', maxArticleCharacters);
   return { text: text.slice(0, cut > maxArticleCharacters / 2 ? cut : maxArticleCharacters), truncated: true };

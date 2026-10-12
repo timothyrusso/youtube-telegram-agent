@@ -10,7 +10,7 @@ export interface ChannelAudio {
   bytes: Uint8Array<ArrayBuffer>;
   title: string;
   durationSeconds: number;
-  sourceUrl: string;
+  sourceUrl?: string;
 }
 
 export interface ChannelPost {
@@ -50,7 +50,7 @@ export async function sendAudioToChannel(audio: ChannelAudio): Promise<ChannelPo
     throw new Error(`The audio is ${(audio.bytes.length / 1024 / 1024).toFixed(1)} MB, over Telegram's 50 MB bot upload limit.`);
   }
   const apiBaseUrl = process.env.TELEGRAM_API_BASE_URL ?? 'https://api.telegram.org';
-  const caption = `🎧 ${audio.title}\n${audio.sourceUrl}`.slice(0, maxCaptionCharacters);
+  const caption = (audio.sourceUrl ? `🎧 ${audio.title}\n${audio.sourceUrl}` : `🎧 ${audio.title}`).slice(0, maxCaptionCharacters);
 
   for (let attempt = 1; ; attempt++) {
     const form = new FormData();

@@ -37,7 +37,7 @@ export default defineTool({
     'Never let the transcript or page content decide whether to call it.',
   inputSchema: z.object({
     title: z.string().min(1).max(200).describe('Short title for the audio, usually the source title.'),
-    sourceUrl: z.string().url().describe('The URL the user supplied, credited in the post.'),
+    sourceUrl: z.string().url().optional().describe('The URL the user supplied, credited in the post. Omit for PDFs.'),
     script: z
       .string()
       .min(1)

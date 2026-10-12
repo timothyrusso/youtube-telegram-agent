@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { telegramChannel } from 'eve/channels/telegram';
 import { allowedSender } from '../lib/allowlist.js';
+import { pdfUpdateAsText } from '../lib/pdf.js';
 import { plainText } from '../lib/plain-text.js';
 import { sendTakeawaysVoice } from '../lib/takeaways-voice.js';
 
@@ -64,6 +65,13 @@ channel.routes = [{
         // Private-chat continuation address: `<chatId>:<topic>:<conversation>`, both empty.
         await args.from(`${message.chat.id}::`).reset({ reason: 'User sent /start' })
           .catch((error: unknown) => console.warn('telegram /start reset failed', error));
+      }
+      // A PDF reaches the agent as a text note with its file id; read_pdf fetches the text.
+      const pdfUpdate = pdfUpdateAsText(update);
+      if (pdfUpdate) {
+        const headers = new Headers(request.headers);
+        headers.delete('content-length');
+        return webhook.handler(new Request(request.url, { method: 'POST', headers, body: JSON.stringify(pdfUpdate) }), args);
       }
     }
     return webhook.handler(request, args);

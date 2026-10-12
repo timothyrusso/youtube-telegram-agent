@@ -74,7 +74,7 @@ After each summary, the channel's `message.completed` handler reads the "Key tak
 
 ## Audio summaries in a private channel
 
-Paste a YouTube or article link and the agent writes an Italian script meant to be heard (translating if the source is in another language), then calls the `create_audio_summary` tool. The tool speaks it with OpenAI text-to-speech in chunks of up to 3,500 characters (three at a time), joins them into one MP3 with a correct duration, and posts it with `sendAudio` to your private audio channel, where it plays in Telegram's music player. Ask for text explicitly ("as text", "in testo") to get the written summary in the chat instead. Delete an episode from the channel when you've finished it.
+Paste a YouTube or article link, or send a PDF (up to 20 MB, with a text layer; scanned PDFs are not supported), and the agent writes an Italian script meant to be heard (translating if the source is in another language), then calls the `create_audio_summary` tool. The tool speaks it with OpenAI text-to-speech in chunks of up to 3,500 characters (three at a time), joins them into one MP3 with a correct duration, and posts it with `sendAudio` to your private audio channel, where it plays in Telegram's music player. Ask for text explicitly ("as text", "in testo") to get the written summary in the chat instead. Delete an episode from the channel when you've finished it.
 
 Setup:
 
@@ -95,7 +95,7 @@ Every request can spend OpenAI credit. Set `TELEGRAM_ALLOWED_USER_IDS` to a comm
 npm test
 ```
 
-Unit tests use Node's built-in test runner and cover script chunking, MP3 joining, file names and the sender allowlist.
+Unit tests use Node's built-in test runner and cover script chunking, MP3 joining, file names, the sender allowlist, URL safety, article extraction and PDF handling. PDFs are rewritten in the webhook into a text note with their Telegram file id, so Eve never stages them in a sandbox; the `read_pdf` tool downloads and extracts them.
 
 ## Notes
 
