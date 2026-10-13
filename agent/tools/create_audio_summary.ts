@@ -43,7 +43,8 @@ export default defineTool({
       .min(1)
       .describe(
         'The full narration in Italian, written to be heard: full sentences and spoken transitions, no bullet points, ' +
-          'no Markdown, no timestamps, no URLs. Length follows the content and the user\'s request.',
+          'no Markdown, no timestamps, no URLs. Length follows the content and the user\'s request; for a full ' +
+          'reading ("integrale") it is the entire content, not a summary.',
       ),
   }),
   label: {
@@ -55,7 +56,8 @@ export default defineTool({
     const text = speakable(script);
     if (text.length > MAX_SCRIPT_CHARACTERS) {
       throw new Error(
-        `The script is ${text.length} characters; the limit is ${MAX_SCRIPT_CHARACTERS} (about 35 minutes). Write a shorter script.`,
+        `The script is ${text.length} characters; the limit is ${MAX_SCRIPT_CHARACTERS} (about 35 minutes). ` +
+          'For a summary, write a shorter one; for a full reading, tell the user the content is too long instead.',
       );
     }
 
