@@ -24,7 +24,8 @@ const authKitUser: AuthFn<Request> = withAuthChallenges(
     if (!header) return null;
     const result = await verifyOidc(extractBearerToken(header), { issuer, audiences: [resource] });
     if (!result.ok) return null;
-    const subject = result.sessionAuth.principalId;
+    // eve namespaces the principal as `<issuer>:<sub>`; the allowlist holds the bare WorkOS user id.
+    const subject = result.sessionAuth.principalId.replace(`${issuer}:`, '');
     // Fails closed: with no allowlist configured nobody gets in. The subject is logged so the
     // owner can find theirs after the first sign-in; it is an id, not a secret.
     if (!allowedSubjects().includes(subject)) {
