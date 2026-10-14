@@ -3,8 +3,9 @@
 // OpenAI recommends marin or cedar for quality; override with OPENAI_TTS_VOICE.
 const defaultVoice = 'marin';
 // The speech endpoint accepts at most 4,096 characters per request; stay well below it.
-export const maxChunkCharacters = 3_500;
-const concurrency = 3;
+// Shorter chunks also make a stalled request cheaper to retry.
+export const maxChunkCharacters = 2_500;
+const concurrency = 4;
 
 export interface SpeakOptions {
   format: 'opus' | 'mp3';
@@ -12,12 +13,18 @@ export interface SpeakOptions {
   signal?: AbortSignal;
 }
 
-/** One speech request. Retries once on a rate limit, server error, timeout or network failure. */
+// Each attempt gets its own deadline, covering the audio download too. A full chunk usually
+// takes 10-30 s, but now and then a request stalls, so a stalled attempt is dropped and retried.
+const attemptTimeoutMs = 60_000;
+const attempts = 3;
+
+/** One speech request. Retries a rate limit, server error, timeout or network failure, up to three attempts. */
 export async function speak(text: string, { format, instructions, signal }: SpeakOptions): Promise<Uint8Array<ArrayBuffer>> {
   for (let attempt = 1; ; attempt++) {
-    let response: Response;
+    const deadline = AbortSignal.timeout(attemptTimeoutMs);
+    let failure: string;
     try {
-      response = await fetch('https://api.openai.com/v1/audio/speech', {
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
         body: JSON.stringify({
@@ -27,19 +34,25 @@ export async function speak(text: string, { format, instructions, signal }: Spea
           instructions,
           response_format: format,
         }),
-        // A full chunk takes about 20 s; the margin covers slow moments without hanging forever.
-        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
+        signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
       });
+      // The audio streams in after the headers, so reading the body is part of the attempt.
+      if (response.ok) return new Uint8Array(await response.arrayBuffer());
+      const body = await response.text();
+      if (response.status !== 429 && response.status < 500) {
+        throw new Error(`OpenAI speech failed with status ${response.status}: ${body}`);
+      }
+      failure = `status ${response.status}: ${body}`;
     } catch (error) {
-      if (signal?.aborted || attempt === 2) throw new Error(`Text-to-speech request failed: ${error instanceof Error ? error.message : String(error)}`);
-      continue;
+      if (signal?.aborted) throw error;
+      if (error instanceof Error && error.message.startsWith('OpenAI speech failed')) throw error;
+      failure = deadline.aborted
+        ? `no answer within ${attemptTimeoutMs / 1000} s`
+        : error instanceof Error ? error.message : String(error);
     }
-    if (response.ok) return new Uint8Array(await response.arrayBuffer());
-    const retryable = response.status === 429 || response.status >= 500;
-    if (!retryable || attempt === 2) {
-      throw new Error(`OpenAI speech failed with status ${response.status}: ${await response.text()}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    if (attempt === attempts) throw new Error(`Text-to-speech failed ${attempts} times; last attempt: ${failure}`);
+    console.warn('Retrying text-to-speech', { attempt, failure });
+    await new Promise((resolve) => setTimeout(resolve, 2_000 * attempt));
   }
 }
 

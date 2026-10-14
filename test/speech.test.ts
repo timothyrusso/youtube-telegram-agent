@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mapWithConcurrency, splitScript } from '../agent/lib/speech.ts';
+import { mapWithConcurrency, speak, splitScript } from '../agent/lib/speech.ts';
 
 test('keeps a short script in one chunk', () => {
   assert.deepEqual(splitScript('Hello there. How are you?'), ['Hello there. How are you?']);
@@ -39,4 +39,36 @@ test('runs tasks with bounded concurrency and keeps input order', async () => {
   });
   assert.deepEqual(results, [0, 1, 2, 3, 4]);
   assert.equal(peak, 2);
+});
+
+test('retries a speech request after a server error, then succeeds', async () => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    if (calls === 1) return new Response(null, { status: 503 });
+    return new Response(new Uint8Array([1, 2, 3]));
+  }) as typeof fetch;
+  try {
+    const bytes = await speak('Ciao.', { format: 'mp3', instructions: '' });
+    assert.deepEqual([...bytes], [1, 2, 3]);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('does not retry a request OpenAI rejects', async () => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return new Response('bad voice', { status: 400 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(speak('Ciao.', { format: 'mp3', instructions: '' }), /status 400/);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
