@@ -5,7 +5,6 @@ const defaultVoice = 'marin';
 // The speech endpoint accepts at most 4,096 characters per request; stay well below it.
 // Shorter chunks also make a stalled request cheaper to retry.
 export const maxChunkCharacters = 2_500;
-const concurrency = 4;
 
 export interface SpeakOptions {
   format: 'opus' | 'mp3';
@@ -99,28 +98,4 @@ function splitAtSpaces(text: string, max: number): string[] {
   }
   if (rest) pieces.push(rest);
   return pieces;
-}
-
-/** Runs `task` over `items` with at most `limit` in flight, keeping results in input order. */
-export async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, task: (item: T, index: number) => Promise<R>) {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await task(items[index], index);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
-/** Speaks a long script as MP3 chunks, in order. Any failed chunk fails the whole script. */
-export function speakScript(script: string, instructions: string, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>[]> {
-  const chunks = splitScript(script);
-  return mapWithConcurrency(chunks, concurrency, (chunk, index) =>
-    speak(chunk, { format: 'mp3', instructions, signal }).catch((error: unknown) => {
-      throw new Error(`Speech for part ${index + 1} of ${chunks.length}: ${error instanceof Error ? error.message : String(error)}`);
-    }),
-  );
 }

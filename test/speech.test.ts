@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mapWithConcurrency, speak, splitScript } from '../agent/lib/speech.ts';
+import { speak, splitScript } from '../agent/lib/speech.ts';
 
 test('keeps a short script in one chunk', () => {
   assert.deepEqual(splitScript('Hello there. How are you?'), ['Hello there. How are you?']);
@@ -25,20 +25,6 @@ test('cuts an over-long sentence at spaces', () => {
   const chunks = splitScript(sentence, 50);
   assert.ok(chunks.every((c) => c.length <= 50));
   assert.equal(chunks.join(' '), sentence);
-});
-
-test('runs tasks with bounded concurrency and keeps input order', async () => {
-  let inFlight = 0;
-  let peak = 0;
-  const results = await mapWithConcurrency([30, 10, 20, 5, 15], 2, async (ms, i) => {
-    inFlight++;
-    peak = Math.max(peak, inFlight);
-    await new Promise((r) => setTimeout(r, ms));
-    inFlight--;
-    return i;
-  });
-  assert.deepEqual(results, [0, 1, 2, 3, 4]);
-  assert.equal(peak, 2);
 });
 
 test('retries a speech request after a server error, then succeeds', async () => {

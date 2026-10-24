@@ -1,35 +1,13 @@
-import { defineTool } from 'eve/tools';
+import { defineWorkflowTool } from 'eve/tools';
 import { never } from 'eve/tools/approval';
 import { z } from 'zod';
-import { audioChannelId, sendAudioToChannel } from '../lib/channel-audio.js';
-import { joinMp3 } from '../lib/mp3.js';
-import { plainText } from '../lib/plain-text.js';
-import { speakScript } from '../lib/speech.js';
+import { discardParts, joinAndPost, prepareParts, speakPart } from '../lib/audio-steps.js';
 
-// About 35 minutes of speech: bounds the TTS cost and keeps the MP3 under Telegram's 50 MB limit.
-const MAX_SCRIPT_CHARACTERS = 30_000;
+// Each part is spoken in its own durable step, so a long audio is no longer bound by one
+// function's time limit and a stalled part is retried alone. At most this many parts run at once.
+const PARALLEL_PARTS = 4;
 
-const narration =
-  'Speak in Italian with natural Italian pronunciation, clearly and warmly, like a friendly podcast host ' +
-  'explaining the episode to a curious listener. Pronounce English technical terms the way Italian ' +
-  'speakers in tech do. Keep a steady pace and the same voice throughout.';
-
-/** Leftover symbols a listener should never hear: Markdown, bullets, transcript timestamps, URLs. */
-function speakable(script: string): string {
-  return plainText(script)
-    .replace(/\[\d{1,2}:\d{2}(?::\d{2})?\]/g, '')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/^\s*•\s*/gm, '')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
-
-function formatDuration(totalSeconds: number) {
-  const seconds = Math.round(totalSeconds);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
-export default defineTool({
+export default defineWorkflowTool({
   approval: never(),
   description:
     "Turn a spoken Italian script into one MP3 and post it to the user's private Telegram audio channel. " +
@@ -51,35 +29,20 @@ export default defineTool({
     start: ({ title }) => `Recording the audio summary of ${title}`,
   },
   async execute({ title, sourceUrl, script }, ctx) {
-    if (!process.env.OPENAI_API_KEY) throw new Error('Audio summaries need OPENAI_API_KEY, which is not configured.');
-    if (!audioChannelId()) throw new Error('Audio summaries need EVE_AUDIO_CHANNEL_ID, which is not configured.');
-    const text = speakable(script);
-    if (text.length > MAX_SCRIPT_CHARACTERS) {
-      throw new Error(
-        `The script is ${text.length} characters; the limit is ${MAX_SCRIPT_CHARACTERS} (about 35 minutes). ` +
-          'For a summary, write a shorter one; for a full reading, tell the user the content is too long instead.',
-      );
+    'use workflow';
+    const { parts, pathnames } = await prepareParts(script, ctx.callId);
+    try {
+      for (let first = 0; first < parts.length; first += PARALLEL_PARTS) {
+        await Promise.all(
+          parts
+            .slice(first, first + PARALLEL_PARTS)
+            .map((text, offset) => speakPart(pathnames[first + offset], first + offset, parts.length, text)),
+        );
+      }
+      return await joinAndPost(pathnames, { title, sourceUrl }, parts.reduce((sum, part) => sum + part.length, 0));
+    } catch (error) {
+      await discardParts(pathnames);
+      throw error;
     }
-
-    const started = Date.now();
-    const chunks = await speakScript(text, narration, ctx.abortSignal);
-    const audio = joinMp3(chunks);
-    const post = await sendAudioToChannel({ bytes: audio.bytes, title, durationSeconds: audio.durationSeconds, sourceUrl });
-    // Usage log for personal cost monitoring; never the script itself.
-    console.info('Audio summary delivered', {
-      characters: text.length,
-      chunks: chunks.length,
-      durationSeconds: Math.round(audio.durationSeconds),
-      megabytes: Number((audio.bytes.length / 1024 / 1024).toFixed(2)),
-      elapsedMs: Date.now() - started,
-    });
-
-    return {
-      delivered: true,
-      title,
-      duration: formatDuration(audio.durationSeconds),
-      postUrl: post.postUrl,
-      messageId: post.messageId,
-    };
   },
 });

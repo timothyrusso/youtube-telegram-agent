@@ -17,6 +17,7 @@
     "@ai-sdk/openai": "^4.0.81",
     "@ai-sdk/openai-compatible": "^3.0.53",
     "@mozilla/readability": "^0.6.0",
+    "@vercel/blob": "2.8.1",
     "ai": "^7.0.107",
     "eve": "^0.63.0",
     "linkedom": "^0.18.13",
