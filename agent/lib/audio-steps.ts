@@ -5,6 +5,7 @@ import { deleteParts, loadPart, partPath, savePart } from './audio-parts.js';
 import { joinMp3 } from './mp3.js';
 import { plainText } from './plain-text.js';
 import { speak, splitScript } from './speech.js';
+import { saveVaultNote } from './vault-note.js';
 
 // About 35 minutes of speech: bounds the TTS cost and keeps the MP3 under Telegram's 50 MB limit.
 const MAX_SCRIPT_CHARACTERS = 30_000;
@@ -92,6 +93,22 @@ export async function joinAndPost(pathnames: string[], request: Omit<AudioReques
     postUrl: post.postUrl,
     messageId: post.messageId,
   };
+}
+
+/**
+ * Keeps the script heard in the audio as a note in the owner's vault. The audio is already
+ * delivered, so a failure here is logged and reported, never thrown.
+ */
+export async function saveNote(request: AudioRequest, duration: string, postUrl: string | null): Promise<string | null> {
+  'use step';
+  try {
+    const path = await saveVaultNote({ ...request, script: speakable(request.script), duration, postUrl });
+    if (path) console.info('Audio note saved to the vault', { path });
+    return path;
+  } catch (error) {
+    console.warn('Could not save the audio note to the vault', { error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
 }
 
 export async function discardParts(pathnames: string[]): Promise<void> {

@@ -1,7 +1,7 @@
 import { defineWorkflowTool } from 'eve/tools';
 import { never } from 'eve/tools/approval';
 import { z } from 'zod';
-import { discardParts, joinAndPost, prepareParts, speakPart } from '../lib/audio-steps.js';
+import { discardParts, joinAndPost, prepareParts, saveNote, speakPart } from '../lib/audio-steps.js';
 
 // Each part is spoken in its own durable step, so a long audio is no longer bound by one
 // function's time limit and a stalled part is retried alone. At most this many parts run at once.
@@ -39,7 +39,9 @@ export default defineWorkflowTool({
             .map((text, offset) => speakPart(pathnames[first + offset], first + offset, parts.length, text)),
         );
       }
-      return await joinAndPost(pathnames, { title, sourceUrl }, parts.reduce((sum, part) => sum + part.length, 0));
+      const post = await joinAndPost(pathnames, { title, sourceUrl }, parts.reduce((sum, part) => sum + part.length, 0));
+      const notePath = await saveNote({ title, sourceUrl, script }, post.duration, post.postUrl);
+      return { ...post, savedNote: notePath };
     } catch (error) {
       await discardParts(pathnames);
       throw error;
