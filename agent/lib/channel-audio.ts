@@ -19,9 +19,9 @@ export interface ChannelPost {
   postUrl: string | null;
 }
 
-/** A filesystem- and Telegram-safe file name such as `2026-10-11-react-native-weekly.mp3`. */
-export function audioFileName(title: string, date = new Date()): string {
-  const slug = title
+/** Lowercase kebab-case without accents, such as `perche-react-native-weekly-42`; empty when nothing is left. */
+export function kebabSlug(title: string): string {
+  return title
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
@@ -29,7 +29,11 @@ export function audioFileName(title: string, date = new Date()): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
     .replace(/-+$/, '');
-  return `${date.toISOString().slice(0, 10)}-${slug || 'audio-summary'}.mp3`;
+}
+
+/** A filesystem- and Telegram-safe file name such as `2026-10-11-react-native-weekly.mp3`. */
+export function audioFileName(title: string, date = new Date()): string {
+  return `${date.toISOString().slice(0, 10)}-${kebabSlug(title) || 'audio-summary'}.mp3`;
 }
 
 /** Private channel ids look like -1001234567890; members open posts at t.me/c/1234567890/<id>. */

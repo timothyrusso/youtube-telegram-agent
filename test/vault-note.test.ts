@@ -19,9 +19,9 @@ test('dates notes in the Rome time zone', () => {
   assert.equal(romeDate(new Date('2026-10-27T23:30:00Z')), '2026-10-28');
 });
 
-test('builds a file name Obsidian accepts', () => {
-  assert.equal(noteFileName(note.title, '2026-10-28'), '2026-10-28 Design WhatsApp guida (integrale).md');
-  assert.equal(noteFileName('#[]', '2026-10-28', 43), '2026-10-28 Audio (43).md');
+test('names notes in kebab-case, as the vault requires', () => {
+  assert.equal(noteFileName(note.title, '2026-10-28'), '2026-10-28-design-whatsapp-guida-integrale.md');
+  assert.equal(noteFileName('#[]', '2026-10-28', 43), '2026-10-28-audio-43.md');
 });
 
 test('writes the vault frontmatter, then the script', () => {
@@ -46,9 +46,9 @@ test('creates a new note on main', async () => {
     return new Response('{}', { status: init.method === 'PUT' ? 201 : 404 });
   }) as typeof fetch;
   const path = await saveVaultNote(note, new Date('2026-10-28T10:00:00Z'));
-  assert.equal(path, '04 Learning/Audio/2026-10-28 Design WhatsApp guida (integrale).md');
+  assert.equal(path, '04-learning/audio/2026-10-28-design-whatsapp-guida-integrale.md');
   assert.equal(calls[1].method, 'PUT');
-  assert.match(calls[1].url, /\/repos\/timothyrusso\/test\/contents\/04%20Learning\/Audio\/2026-10-28%20Design/);
+  assert.match(calls[1].url, /\/repos\/timothyrusso\/test\/contents\/04-learning\/audio\/2026-10-28-design-whatsapp/);
   assert.equal(calls[1].body?.branch, 'main');
   assert.match(Buffer.from(calls[1].body!.content, 'base64').toString(), /Secondo paragrafo/);
 });
@@ -57,13 +57,13 @@ test('treats a note already holding this audio as saved, and renames on a clash'
   process.env.GITHUB_NOTES_TOKEN = 'test-token';
   const existing = (text: string) => new Response(JSON.stringify({ content: Buffer.from(text).toString('base64') }));
   globalThis.fetch = (async () => existing(`audio: "${note.postUrl}"`)) as typeof fetch;
-  assert.equal(await saveVaultNote(note), `04 Learning/Audio/${noteFileName(note.title, romeDate())}`);
+  assert.equal(await saveVaultNote(note), `04-learning/audio/${noteFileName(note.title, romeDate())}`);
 
   const methods: string[] = [];
   globalThis.fetch = (async (_url: string, init: RequestInit = {}) => {
     methods.push(init.method ?? 'GET');
     return init.method === 'PUT' ? new Response('{}', { status: 201 }) : existing('another note');
   }) as typeof fetch;
-  assert.match((await saveVaultNote(note))!, / \(43\)\.md$/);
+  assert.match((await saveVaultNote(note))!, /-43\.md$/);
   assert.deepEqual(methods, ['GET', 'PUT']);
 });

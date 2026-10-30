@@ -2,6 +2,7 @@
 // be searched and linked later. The repository and folder are fixed server-side; the token only has
 // Contents access to that one repository. Each audio adds a new file and never touches others, so
 // writing straight to main does not clash with Obsidian mobile sync.
+import { kebabSlug } from './channel-audio.js';
 
 export interface VaultNote {
   title: string;
@@ -11,18 +12,14 @@ export interface VaultNote {
   postUrl: string | null;
 }
 
-/** Characters Obsidian refuses in file names, or that break wikilinks. */
-const unsafeFileCharacters = /[\\/:*?"<>|#^[\]]/g;
-
 /** The note's date in the owner's time zone, as YYYY-MM-DD. */
 export function romeDate(date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(date);
 }
 
-/** A readable, vault-unique file name such as `2026-10-28 Design WhatsApp.md`. */
+/** The vault names notes in lowercase kebab-case, such as `2026-10-28-design-whatsapp.md`. */
 export function noteFileName(title: string, day: string, suffix?: string | number): string {
-  const name = title.replace(unsafeFileCharacters, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim();
-  return `${day} ${name || 'Audio'}${suffix === undefined ? '' : ` (${suffix})`}.md`;
+  return `${day}-${kebabSlug(title) || 'audio'}${suffix === undefined ? '' : `-${suffix}`}.md`;
 }
 
 /** The note in the vault's convention: frontmatter the Bases plugin can query, then the script. */
@@ -67,7 +64,7 @@ export async function saveVaultNote(note: VaultNote, now = new Date()): Promise<
   const token = process.env.GITHUB_NOTES_TOKEN?.trim();
   if (!token) return null;
   const repo = process.env.GITHUB_NOTES_REPO?.trim() || 'timothyrusso/test';
-  const folder = process.env.GITHUB_NOTES_FOLDER?.trim() || '04 Learning/Audio';
+  const folder = process.env.GITHUB_NOTES_FOLDER?.trim() || '04-learning/audio';
   const day = romeDate(now);
   const content = noteMarkdown(note, day);
 
