@@ -19,16 +19,21 @@ export interface ChannelPost {
   postUrl: string | null;
 }
 
-/** Lowercase kebab-case without accents, such as `perche-react-native-weekly-42`; empty when nothing is left. */
+/**
+ * Lowercase kebab-case without accents, such as `perche-react-native-weekly-42`, at most 60
+ * characters and cut between words; empty when nothing is left.
+ */
 export function kebabSlug(title: string): string {
-  return title
+  const slug = title
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-    .replace(/-+$/, '');
+    .replace(/^-+|-+$/g, '');
+  if (slug.length <= 60) return slug;
+  const lastBreak = slug.lastIndexOf('-', 60);
+  // A single word longer than the limit is cut where it must be.
+  return lastBreak > 0 ? slug.slice(0, lastBreak) : slug.slice(0, 60);
 }
 
 /** A filesystem- and Telegram-safe file name such as `2026-10-11-react-native-weekly.mp3`. */
