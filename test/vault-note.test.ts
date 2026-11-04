@@ -48,7 +48,7 @@ test('creates a new note on main', async () => {
   const path = await saveVaultNote(note, new Date('2026-10-28T10:00:00Z'));
   assert.equal(path, '04-learning/audio/2026-10-28-design-whatsapp-guida-integrale.md');
   assert.equal(calls[1].method, 'PUT');
-  assert.match(calls[1].url, /\/repos\/timothyrusso\/test\/contents\/04-learning\/audio\/2026-10-28-design-whatsapp/);
+  assert.match(calls[1].url, /\/repos\/timothyrusso\/jym\/contents\/04-learning\/audio\/2026-10-28-design-whatsapp/);
   assert.equal(calls[1].body?.branch, 'main');
   assert.match(Buffer.from(calls[1].body!.content, 'base64').toString(), /Secondo paragrafo/);
 });

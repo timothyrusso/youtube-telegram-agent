@@ -63,7 +63,7 @@ async function github(url: string, token: string, init: RequestInit = {}): Promi
 export async function saveVaultNote(note: VaultNote, now = new Date()): Promise<string | null> {
   const token = process.env.GITHUB_NOTES_TOKEN?.trim();
   if (!token) return null;
-  const repo = process.env.GITHUB_NOTES_REPO?.trim() || 'timothyrusso/test';
+  const repo = process.env.GITHUB_NOTES_REPO?.trim() || 'timothyrusso/jym';
   const folder = process.env.GITHUB_NOTES_FOLDER?.trim() || '04-learning/audio';
   const day = romeDate(now);
   const content = noteMarkdown(note, day);
